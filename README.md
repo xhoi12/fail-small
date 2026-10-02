@@ -17,7 +17,7 @@ why staged rollouts matter, or as a warm-up before a game day.
 ## Quick start
 
 ```bash
-git clone <this repo> && cd fail-small
+git clone https://github.com/xhoi12/fail-small.git && cd fail-small
 npm install
 npm start          # → http://localhost:8787
 ```
@@ -140,3 +140,7 @@ PROMPTS.md      AI-assisted development prompt history
 
 I built this pairing with Claude Code. If you're curious how the prompting went, the history is in
 [`PROMPTS.md`](PROMPTS.md).
+
+## License
+
+MIT, see [`LICENSE`](LICENSE).
