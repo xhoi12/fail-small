@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fail-small",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"], // required by the Agents SDK
+
+  // The game UI (plain HTML/CSS/JS, no build step).
+  "assets": { "directory": "./public" },
+
+  // Llama 3.3 on Workers AI powers the co-pilot.
+  "ai": { "binding": "AI" },
+
+  // One GameSession agent (Agents SDK, backed by a Durable Object) per player:
+  // fleet state, chat memory, scores. Routed at /agents/game-session/<player-id>.
+  "durable_objects": {
+    "bindings": [{ "name": "GameSession", "class_name": "GameSession" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GameSession"] }],
+
+  // Every rollout is a durable Workflow instance: apply stage -> bake -> health gate -> decide.
+  "workflows": [
+    { "name": "fail-small-rollout", "binding": "ROLLOUT_WORKFLOW", "class_name": "RolloutWorkflow" }
+  ],
+
+  "vars": { "COPILOT_MODE": "auto" },
+  "observability": { "enabled": true }
+}

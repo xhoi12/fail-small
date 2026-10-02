@@ -1,0 +1,25 @@
+{
+  "name": "fail-small",
+  "version": "1.0.0",
+  "description": "A game about shipping config changes without breaking the internet. Built on the Cloudflare Agents SDK, Workers AI and Workflows.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "wrangler dev",
+    "dev:offline": "wrangler dev --local --var COPILOT_MODE:offline",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.147.0"
+  },
+  "dependencies": {
+    "agents": "^0.24.0"
+  }
+}

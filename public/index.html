@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fail Small</title>
+    <meta name="description" content="A game about shipping config changes without breaking the internet." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='5' fill='%23f6821f'/><circle cx='16' cy='16' r='11' fill='none' stroke='%23f6821f' stroke-width='2' opacity='.5'/><circle cx='16' cy='16' r='15' fill='none' stroke='%23f6821f' stroke-width='1.5' opacity='.25'/></svg>" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>Fail Small</h1>
+          <p>Ship config changes without breaking the internet.</p>
+        </div>
+      </div>
+      <nav id="levels" class="levels" aria-label="Levels"></nav>
+      <div class="toolbar">
+        <label class="switch" title="Datacenters validate configs and keep the last known-good one if validation fails">
+          <input type="checkbox" id="fail-stale" />
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+          <span>Fail stale</span>
+        </label>
+        <button id="help-open" class="btn btn-ghost" type="button">How to play</button>
+        <button id="reset" class="btn btn-ghost" type="button">Reset</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="column">
+        <div class="coach" id="coach" aria-live="polite">
+          <ol class="steps" id="steps">
+            <li>Review &amp; plan</li>
+            <li>Deploy &amp; watch</li>
+            <li>Proceed or roll back</li>
+            <li>Debrief</li>
+          </ol>
+          <div class="coach-body">
+            <b id="coach-title"></b>
+            <p id="coach-text"></p>
+          </div>
+        </div>
+
+        <article class="card" id="ticket-card">
+          <header class="card-head">
+            <span class="eyebrow"><span class="step-num">1</span><span id="ticket-id"></span></span>
+            <span class="muted" id="ticket-author"></span>
+          </header>
+          <h2 id="ticket-summary"></h2>
+          <p id="ticket-description" class="muted"></p>
+          <div class="file">
+            <code id="config-name"></code>
+            <span class="muted" id="config-consumer"></span>
+          </div>
+          <div id="diff" class="diff" role="table" aria-label="Config diff"></div>
+        </article>
+
+        <article class="card" id="plan-card">
+          <header class="card-head">
+            <span class="eyebrow"><span class="step-num">1</span>Rollout plan</span>
+            <span class="muted hint">How the change reaches the fleet</span>
+          </header>
+          <div class="plan-grid">
+            <fieldset class="segmented" id="strategy">
+              <legend>Strategy</legend>
+              <label><input type="radio" name="strategy" value="big-bang" /><span>Big bang<small>100% at once</small></span></label>
+              <label><input type="radio" name="strategy" value="fast" /><span>Fast<small>10% → 100%</small></span></label>
+              <label><input type="radio" name="strategy" value="staged" /><span>Staged<small>canary → 10 → 50 → 100%</small></span></label>
+            </fieldset>
+            <label class="field">Canary datacenter<select id="canary"></select></label>
+            <label class="field">Bake time per stage<select id="bake"></select></label>
+          </div>
+          <div id="plan-preview" class="stages"></div>
+          <button id="deploy" class="btn btn-primary" type="button">Deploy change</button>
+        </article>
+
+        <article class="card" id="rollout-card">
+          <header class="card-head">
+            <span class="eyebrow"><span class="step-num">2</span>Rollout</span>
+            <span id="rollout-status" class="pill">Not started</span>
+          </header>
+          <div class="blast">
+            <div>
+              <div class="blast-value"><span id="blast">0.0</span><small>%·s</small></div>
+              <div class="muted">Blast radius: % of global requests failing × seconds. Lower is better.</div>
+            </div>
+            <div class="decision">
+              <button id="proceed" class="btn btn-primary" type="button" disabled>Proceed</button>
+              <button id="rollback" class="btn btn-danger" type="button" disabled>Roll back</button>
+            </div>
+          </div>
+          <div id="rollout-stages" class="stages"></div>
+          <div id="result" class="result" hidden></div>
+        </article>
+
+        <article class="card" id="fleet-card">
+          <header class="card-head">
+            <span class="eyebrow"><span class="step-num">2</span>Fleet</span>
+            <span class="legend">
+              <i class="dot old"></i>Old config <i class="dot new"></i>New config <i class="dot warn"></i>Elevated
+              <i class="dot bad"></i>Failing <i class="dot rejected"></i>Kept last known-good
+            </span>
+          </header>
+          <div id="fleet" class="fleet"></div>
+        </article>
+      </section>
+
+      <aside class="card chat" aria-label="Co-pilot chat">
+        <header class="card-head">
+          <span class="eyebrow">Co-pilot</span>
+          <span id="copilot-source" class="pill">connecting…</span>
+        </header>
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <div id="typing" class="typing" hidden><span></span><span></span><span></span></div>
+        <div class="quick">
+          <button type="button" data-say="review">review</button>
+          <button type="button" data-say="status">status</button>
+          <button type="button" data-say="Which canary would you pick for this change, and why?">which canary?</button>
+        </div>
+        <form id="chat-form" class="composer">
+          <input id="chat-input" autocomplete="off" placeholder="Ask the co-pilot, or type deploy / proceed / rollback" maxlength="1000" />
+          <button class="btn btn-primary" type="submit">Send</button>
+        </form>
+      </aside>
+    </main>
+
+    <dialog id="help" class="help" aria-labelledby="help-title">
+      <form method="dialog">
+        <h2 id="help-title">How to play</h2>
+        <p class="muted">
+          You're the release engineer. Each level is a config change that may or may not be broken. Get it to the whole
+          fleet if it's good, or roll it back if it's bad, while hurting as few requests as possible.
+        </p>
+        <ol class="help-steps">
+          <li><b>Review.</b> Read the ticket and the config diff. The co-pilot on the right posts a pre-flight review.</li>
+          <li><b>Plan.</b> Choose a strategy (big bang, fast or staged), a canary datacenter that gets the change first, and how long each stage bakes.</li>
+          <li><b>Deploy and watch.</b> Each stage applies the config, bakes, then runs a health check. If any datacenter goes over 10% errors, the health gate rolls back on its own.</li>
+          <li><b>Decide.</b> After each stage it's your call: proceed or roll back. The gate only catches big failures, so compare with the baseline and ask the co-pilot ("why is SYD elevated?"). You can also type <code>deploy</code>, <code>proceed</code>, <code>rollback</code>, <code>status</code> or <code>review</code>.</li>
+          <li><b>Fail stale</b> (top bar). Datacenters validate new configs and keep serving the last known-good one if validation fails.</li>
+        </ol>
+        <p class="muted">
+          <b>Scoring.</b> Bad changes must end rolled back; good changes must reach 100%. The grade comes from the blast
+          radius, and big-bang deploys cap at B: getting lucky isn't engineering.
+        </p>
+        <div class="help-actions"><button class="btn btn-primary" value="close">Start playing</button></div>
+      </form>
+    </dialog>
+
+    <div id="offline-banner" class="offline-banner" hidden>Reconnecting…</div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
