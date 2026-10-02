@@ -1,14 +1,17 @@
 {
   "compilerOptions": {
+    // ES2021 so TC39 decorators (@callable) are transformed, as the Agents SDK requires.
     "target": "es2021",
-    "lib": ["es2024"],
+    "lib": ["es2024", "dom", "dom.iterable"],
     "module": "es2022",
     "moduleResolution": "bundler",
-    "types": ["./worker-configuration.d.ts"],
+    "jsx": "react-jsx",
+    "types": ["./worker-configuration.d.ts", "vite/client", "node", "@cloudflare/vitest-plugin/types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "worker-configuration.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "worker-configuration.d.ts", "vite.config.ts", "vitest.config.ts"]
 }

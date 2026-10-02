@@ -2,9 +2,11 @@
 
 **A game about shipping config changes without breaking the internet.**
 
+![A staged rollout of a good change: canary, health checks, a decision after every stage, then the debrief](docs/media/rollout.gif)
+
 You're the release engineer. Each level is a config change ticket. Pick a rollout plan, deploy it to a simulated
-fleet of 20 edge datacenters, and decide at every stage whether to proceed or roll back. An AI co-pilot
-(Llama 3.3 on Workers AI) reviews the change and comments on the health data, but it can be wrong.
+fleet of 20 edge datacenters, and decide at every stage whether to proceed or roll back. An AI co-pilot reviews the
+change, watches the fleet with its own tools and can propose actions for you to approve, but it can be wrong.
 Your score is the **blast radius**: % of global requests failing × seconds. Keep it small.
 
 I started this after reading Cloudflare's [Code Orange: Fail Small](https://blog.cloudflare.com/fail-small-resilience-plan/)
@@ -19,45 +21,68 @@ why staged rollouts matter, or as a warm-up before a game day.
 ```bash
 git clone https://github.com/xhoi12/fail-small.git && cd fail-small
 npm install
-npm start          # → http://localhost:8787
+npm start          # opens http://localhost:5173
 ```
 
-That's it. No Cloudflare account needed: the agent, the Workflow and the UI all run locally under `wrangler dev`.
+That's it. The game, the agent and the rollout Workflow all run on your machine, and you don't need a Cloudflare
+account. Needs Node.js 20.19 or newer.
 
-### Optional: turn on the real AI co-pilot
+### Offline co-pilot vs AI co-pilot
 
-Everything except the LLM runs on your machine. Workers AI runs on Cloudflare's GPUs even during local dev, so the
-co-pilot needs a (free) Cloudflare account to call Llama 3.3:
+The co-pilot is the only part that changes depending on whether you're logged in to Cloudflare. `npm start` checks
+and picks the right mode on its own.
 
-```bash
-npx wrangler login   # opens a browser to authorize Wrangler; one time only
-npm start
-```
-
-`npm start` checks whether you're logged in and picks the mode for you:
-
-| | Co-pilot | Needs |
+| | **Offline co-pilot** (default) | **AI co-pilot** |
 |---|---|---|
-| **Not logged in** | Scripted reviews for each level; free-form chat is limited | Nothing |
-| **Logged in** | Llama 3.3 on Workers AI: reviews, stage-by-stage advice, chat, debriefs | A free Cloudflare account (Workers AI free tier is plenty) |
+| What you need | Nothing | A free Cloudflare account |
+| Pre-flight review | A scripted review per level | Llama 3.3 reads the diff and writes one |
+| Advice after each stage | Simple rule: is anything above baseline? | Llama 3.3 looks at the fleet with its tools and recommends PROCEED or ROLLBACK |
+| Proposing actions | No | Can propose a plan change, deploy, proceed or roll back; you approve or reject each one |
+| Chat ("why is SYD elevated?") | Commands only (`deploy`, `status`, …) | Free-form questions |
+| End-of-level debrief | The level's lesson | A blameless debrief of *your* rollout |
+| Badge in the co-pilot panel | `Offline` | `Llama 3.3` |
 
-The pill in the co-pilot panel shows which one you're talking to.
+**To switch on the AI co-pilot** (one-time setup, free, no credit card):
+
+1. **Create a Cloudflare account.** Sign up at [dash.cloudflare.com/sign-up](https://dash.cloudflare.com/sign-up)
+   with your email and a password, then verify your email.
+2. **Pick a workers.dev subdomain.** New accounts need one before Wrangler can reach Workers AI from your machine.
+   In the dashboard, open [**Workers & Pages**](https://dash.cloudflare.com/?to=/:account/workers-and-pages),
+   find **Your subdomain**, and set one up (any name; it's free). You don't need to create or deploy a Worker.
+   ([Cloudflare docs](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/))
+3. **Log in from the terminal.** Run `npx wrangler login`. A browser tab opens; log in with that account and click
+   **Allow**. You only do this once per machine.
+4. **Start the game.** Run `npm start`. The terminal should say *"co-pilot powered by Llama 3.3 on Workers AI"*,
+   and the badge in the co-pilot panel should read **Llama 3.3** instead of **Offline**.
+
+If step 4 can't connect (for example, step 2 was skipped), `npm start` says so and starts with the offline
+co-pilot instead.
+
+**Why does it need an account?** Everything else runs locally, but Workers AI models only run on Cloudflare's GPUs,
+so during local development the requests the co-pilot makes go to Workers AI using your account. The
+[free allocation](https://developers.cloudflare.com/workers-ai/platform/pricing/) (10,000 neurons a day) covers plenty
+of games, and nothing gets deployed.
+
+To use the offline co-pilot while logged in, run `npm run dev:offline`.
 
 ## How to play
 
-The game shows these rules on your first visit (and under **How to play** in the top bar), and a banner above the
-ticket tells you what to do next at every point of a rollout.
+The game shows these rules on your first visit, and they're under **How to play** in the top bar. The screen has
+three parts: the **levels** in the dark bar at the top, the **game** in the middle (it follows you through *Plan →
+Deploy & watch → Decide → Debrief*, and always says what to do next), and the **co-pilot** chat on the right.
 
-1. Read the ticket and the config diff. The co-pilot posts a pre-flight review.
-2. Choose a **strategy** (big bang / fast / staged), a **canary datacenter** and a **bake time**.
-3. **Deploy.** Each stage applies the config, bakes, then runs a health check. If any datacenter is over a 10% error
-   rate, the health gate rolls back automatically.
-4. After each stage, it's your call: **proceed** or **roll back**. You can also chat with the co-pilot
-   ("why is SYD elevated?") or type `deploy`, `proceed`, `rollback`, `status`, `review`.
-5. Toggle **Fail stale** to make datacenters validate configs and keep their last known-good version.
+1. **Plan.** Read the ticket and the config diff, and the co-pilot's pre-flight review. Choose a strategy (staged,
+   fast or big bang), a canary datacenter that gets the change first, and how long each stage bakes.
+2. **Deploy and watch.** Each stage applies the config, bakes, then runs a health check. If any datacenter goes
+   over 10% errors, the health gate rolls back on its own.
+3. **Decide.** After each stage it's your call: proceed or roll back. The gate only catches big failures, so compare
+   with the baseline and ask the co-pilot. You can also type `deploy`, `proceed`, `rollback`, `status` or `review`.
+4. **Fail stale** (top bar) makes datacenters validate new configs and keep their last known-good version.
 
 Bad changes must end rolled back; good changes must reach 100%. The grade comes from the blast radius, and big-bang
 deploys cap at B because getting lucky isn't engineering.
+
+![A bad feature file takes the canary to 100% errors; the health gate rolls it back automatically](docs/media/health-gate.gif)
 
 | # | Level | What it teaches |
 |---|-------|-----------------|
@@ -69,70 +94,126 @@ deploys cap at B because getting lucky isn't engineering.
 
 ## How it's built
 
-It was also an excuse to try Cloudflare's agent stack end to end: the
+It was also an excuse to try Cloudflare's agent stack end to end, following the structure of the
+[chat agent example](https://developers.cloudflare.com/agents/examples/chat-agent/): the
 [Agents SDK](https://developers.cloudflare.com/agents/), Workers AI and Workflows.
 
 | Piece | How |
 |---|---|
-| **Agent** | `GameSession` extends the SDK's `Agent` class ([`src/game.ts`](src/game.ts)), one instance per player, routed with `routeAgentRequest` at `/agents/game-session/<player-id>`. It uses the SDK's persisted state, SQL, scheduling, WebSocket connections, `@callable()` RPC and Workflow integration. |
-| **LLM** | Llama 3.3 70B (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) on Workers AI. It does the pre-flight review of the diff, commentary after each stage, free-form chat, and a blameless debrief. See [`src/copilot.ts`](src/copilot.ts). |
+| **Agent** | `GameSession` ([`src/game.ts`](src/game.ts)) extends `AIChatAgent` from `@cloudflare/ai-chat`, so it's an Agent (a Durable Object underneath): one instance per player, routed with `routeAgentRequest` at `/agents/game-session/<player-id>`. |
+| **LLM** | Llama 3.3 70B (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) on Workers AI, through the AI SDK's `streamText` and `workers-ai-provider`. It writes the pre-flight review, reviews each stage, answers questions and writes the debrief. See [`src/copilot.ts`](src/copilot.ts). |
+| **Tools** | Read-only tools run on their own (rollout status, fleet health, one datacenter's last 30 seconds, past rollouts). Action tools (change the plan, deploy, proceed, roll back) use `needsApproval`: the player sees an Approve / Reject card first. |
 | **Rollouts** | Each rollout is a **Cloudflare Workflow** ([`src/workflow.ts`](src/workflow.ts)) that extends the SDK's `AgentWorkflow`. The agent starts it with `runWorkflow()`, and the workflow calls back through `this.agent`: `step.do` apply → `step.sleep` bake → `step.do` health check → automatic rollback, or `step.waitForEvent` for the player's decision, which the agent sends with `sendWorkflowEvent()`. |
-| **Chat** | Chat UI served with Workers Static Assets ([`public/`](public/)), connected to the agent over WebSockets. Buttons and chat call the agent's `@callable()` methods (`deploy`, `proceed`, `rollbackNow`, `chat`, …) over the SDK's WebSocket RPC. Commands and free-form questions both work. |
-| **Memory / state** | Agent state (`this.setState`, persisted in the agent's SQLite): fleet, last known-good configs, the active rollout, scores, and a rolling memory of past rollouts that is fed back to the co-pilot ("last time you skipped the canary…"). Chat history lives in a `messages` table via `this.sql`. |
+| **Chat** | A React app ([`src/client/`](src/client/)) built with Vite and the Cloudflare Vite plugin. `useAgent` connects to the agent; `useAgentChat` streams the co-pilot's replies, tool calls and approval cards. The buttons call the agent's `@callable()` methods (`deploy`, `proceed`, `rollbackNow`, …). |
+| **Memory / state** | Agent state (`setState`, persisted in the agent's SQLite): fleet, last known-good configs, the active rollout, scores, and a memory of past rollouts the co-pilot can look up. `AIChatAgent` keeps the chat in SQLite; the activity log has its own table. |
+| **Scheduling** | While a rollout runs, a 1-second `scheduleEvery` task advances the simulation and pushes fleet health to the browser. |
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-  B[Browser<br/>public/app.js] <-- "WebSocket: @callable RPC + state pushes" --> W[Worker<br/>routeAgentRequest]
-  W --> G[GameSession<br/>Agent]
-  G -- runWorkflow / sendWorkflowEvent /<br/>terminateWorkflow --> R[RolloutWorkflow<br/>AgentWorkflow]
-  R -- this.agent: applyStage, checkHealth,<br/>rollback, completeRollout --> G
-  G -- prompts --> AI[Workers AI<br/>Llama 3.3]
-  G -- scheduleEvery 1s --> G
+flowchart TD
+  browser["React app<br/>src/client/"]
+  worker["Worker<br/>src/server.ts"]
+  agent["GameSession agent<br/>src/game.ts"]
+  workflow["RolloutWorkflow<br/>src/workflow.ts"]
+  ai["Workers AI<br/>Llama 3.3"]
+
+  browser <-->|WebSocket| worker
+  worker -->|routeAgentRequest| agent
+  agent -->|runWorkflow| workflow
+  workflow -->|this.agent RPC| agent
+  agent -->|streamText + tools| ai
+```
+
+One stage of a rollout, step by step:
+
+```mermaid
+sequenceDiagram
+  participant P as Player (browser)
+  participant A as GameSession agent
+  participant W as RolloutWorkflow
+  participant L as Llama 3.3
+
+  P->>A: deploy()
+  A->>W: runWorkflow()
+  W->>A: applyStage()
+  Note over W: step.sleep (bake)
+  W->>A: checkHealth()
+  alt a datacenter is over 10% errors
+    W->>A: rollback() — automatic
+  else healthy
+    W->>A: copilotStageReview()
+    A->>L: stage report (saveMessages)
+    L->>A: getFleetHealth(), getDatacenter()
+    L-->>P: PROCEED or ROLLBACK, maybe a rollBack proposal to approve
+    W->>A: awaitDecision()
+    Note over W: step.waitForEvent
+    P->>A: proceed()
+    A->>W: sendWorkflowEvent()
+  end
 ```
 
 - The **agent holds all state**; the **Workflow only coordinates**. Every method the workflow calls checks the
   rollout id and is idempotent, so retried or stale workflow steps can't double-apply a stage or touch a newer
   rollout.
-- The browser can only reach the `@callable()` methods; the stage-control methods are plain RPC, reachable only by
-  the Workflow.
-- While a rollout runs, a 1-second **`scheduleEvery`** task advances the simulation: it adds up the blast radius and
-  pushes fleet health to every connected browser. It cancels itself when the rollout ends.
+- The browser can only reach the `@callable()` methods, which validate their input; the stage-control methods are
+  plain RPC, reachable only by the Workflow. Clients can't write agent state directly either: `validateStateChange`
+  rejects any state update that doesn't come from the server, so nobody can hand themselves an S.
+- The co-pilot speaks up on its own (pre-flight review, stage reviews, debrief) through `saveMessages()` with a
+  hidden prompt message. It waits for the chat to be idle first (`waitUntilStable`), so it never talks over you.
 - Rolling back mid-rollout **terminates** the Workflow instance; proceeding sends it an event.
 - The simulation itself ([`src/sim.ts`](src/sim.ts)) is pure TypeScript with unit tests: fleet, staging, error
   models (crash, slow burn, regional, subtle), and scoring.
 
 ## Design decisions
 
-- **The LLM advises; it never gates.** Health gates are deterministic, and the player makes the call. The co-pilot
-  never sees the hidden failure mode, so it reasons from the same diff and metrics as you, and it can be wrong.
-  Level 5 makes that the point.
-- **Graceful degradation for the AI itself.** If Workers AI is unavailable (offline, not logged in, quota), the
-  co-pilot falls back to scripted reviews instead of breaking the game. That's fail stale, applied to the app.
-- **No build step.** Plain HTML/CSS/JS frontend that speaks the Agents SDK's WebSocket RPC protocol directly (about
-  15 lines in `public/app.js`). One runtime dependency (`agents`), plus `wrangler`, `typescript` and `vitest`.
-  Cloning and running should just work.
+- **The LLM proposes; the player decides; the gate is deterministic.** The co-pilot can look things up on its own,
+  but anything that changes the game needs an Approve click. It never sees the hidden failure mode, so it reasons
+  from the same diff and metrics as you, and it can be wrong. Level 5 makes that the point.
+- **Stale proposals get withdrawn.** If the co-pilot proposes "roll back" and you press Proceed instead, the proposal
+  is marked declined, so an old card can't fire later.
+- **Graceful degradation for the AI itself.** If Workers AI is unavailable (offline, not logged in, rate limited),
+  the co-pilot falls back to scripted replies for a minute instead of breaking the game. That's fail stale, applied
+  to the app.
+- **Typed commands skip the LLM.** `deploy`, `proceed` and `rollback` act immediately: typing the command is the
+  approval.
+- **Co-pilot turns check they're still relevant.** A stage review waits for the chat to go quiet before it posts. If
+  the rollout ended in the meantime (or you reset the game), it stays silent instead of advising on a rollout that's
+  already over.
 
 ## Development
 
 ```bash
-npm test            # unit tests for the simulation and scoring
+npm start            # dev server; picks the offline or AI co-pilot for you
+npm run dev:offline  # dev server with the offline co-pilot
+npm test             # unit + integration tests (no Cloudflare account needed)
 npm run typecheck
-npm run dev         # wrangler dev (uses remote Workers AI, needs login)
-npm run dev:offline # fully local, scripted co-pilot
+npm run build        # production build (dist/)
+npm run deploy       # build and deploy to your Cloudflare account
 ```
+
+`npm run deploy` publishes the Worker, the agent and the Workflow to your account; there, the co-pilot runs on
+Workers AI natively, with no login step. Set `COPILOT_MODE` to `offline` in [`wrangler.jsonc`](wrangler.jsonc) to
+ship the scripted co-pilot instead.
+
+The integration tests ([`test/game.test.ts`](test/game.test.ts)) run the agent and the Workflow inside workerd
+with [`@cloudflare/vitest-plugin`](https://developers.cloudflare.com/workers/testing/vitest-integration/). Workflow
+sleeps are switched off with `introspectWorkflow`, and Workers AI is swapped for the AI SDK's mock model, so they
+cover full rollouts, the health gate, fail-stale, and the co-pilot proposing a rollback that only happens once it's
+approved, and a client trying to write agent state directly. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))
+typechecks, tests and builds on every push and pull request.
 
 ```
 src/
-  index.ts      Worker entry: routes /agents/game-session/<player> to the player's agent
-  game.ts       GameSession agent: state, chat history, @callable player actions, tick, RPC for the workflow
+  server.ts     Worker entry: routes /agents/game-session/<player> to the player's agent
+  game.ts       GameSession (AIChatAgent): state, co-pilot turns, @callable player actions, RPC for the workflow
   workflow.ts   RolloutWorkflow (AgentWorkflow): staged rollout with health gates and player decisions
-  copilot.ts    Workers AI prompts and the offline fallback
+  copilot.ts    Prompts, tools and the offline fallback
   sim.ts        Fleet, rollout stages, error models, scoring (pure, tested)
   levels.ts     Level definitions
-public/         Game UI
-test/           Unit tests
+  shared.ts     Types shared by the agent and the client
+  client/       React app: navigation, game panels, co-pilot chat
+test/           Unit tests (sim) and integration tests (agent + workflow)
 PROMPTS.md      AI-assisted development prompt history
 ```
 

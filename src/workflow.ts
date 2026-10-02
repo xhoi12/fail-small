@@ -11,7 +11,7 @@
 // idempotent, so a crashed or retried step never double-applies anything.
 
 import { AgentWorkflow, type AgentWorkflowEvent, type AgentWorkflowStep } from "agents/workflows";
-import { decisionEvent, type GameSession } from "./game";
+import { decisionEvent, type GameSession, type HealthCheck } from "./game";
 
 export interface RolloutParams {
   rolloutId: string;
@@ -34,7 +34,15 @@ export class RolloutWorkflow extends AgentWorkflow<GameSession, RolloutParams> {
 
       await step.sleep(`stage ${n}: bake`, `${last ? watchSec : bakeSec} seconds`);
 
-      const health = await step.do(`stage ${n}: health check`, () => game.checkHealth(rolloutId, i));
+      const health = await step.do(`stage ${n}: health check`, async () => {
+        const result = await game.checkHealth(rolloutId, i);
+        try {
+          // An RPC result is a disposable proxy; a step's return value must be plain, serializable data.
+          return result ? (structuredClone({ ...result }) as HealthCheck) : null;
+        } finally {
+          result?.[Symbol.dispose]();
+        }
+      });
       if (!health) return "aborted";
 
       if (health.gateTripped) {

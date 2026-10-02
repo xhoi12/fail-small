@@ -2,24 +2,59 @@
   "name": "fail-small",
   "version": "1.0.0",
   "description": "A game about shipping config changes without breaking the internet. Built on the Cloudflare Agents SDK, Workers AI and Workflows.",
+  "keywords": [
+    "cloudflare-workers",
+    "cloudflare-agents",
+    "workers-ai",
+    "durable-objects",
+    "cloudflare-workflows",
+    "sre",
+    "game"
+  ],
+  "author": "Xhoi Luli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xhoi12/fail-small.git"
+  },
+  "homepage": "https://github.com/xhoi12/fail-small#readme",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node scripts/start.mjs",
-    "dev": "wrangler dev",
-    "dev:offline": "wrangler dev --local --var COPILOT_MODE:offline",
-    "deploy": "wrangler deploy",
+    "dev": "vite dev",
+    "dev:offline": "node scripts/start.mjs --offline",
+    "build": "vite build",
+    "preview": "vite build && vite preview",
+    "deploy": "vite build && wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types"
   },
   "license": "MIT",
   "devDependencies": {
+    "@ai-sdk/provider": "^4.0.21",
+    "@cloudflare/vite-plugin": "^1.62.5",
+    "@cloudflare/vitest-plugin": "^1.3.6",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "typescript": "^7.0.2",
+    "vite": "^8.3.2",
     "vitest": "^4.1.11",
     "wrangler": "^4.147.0"
   },
   "dependencies": {
-    "agents": "^0.24.0"
+    "@ai-sdk/react": "^4.0.130",
+    "@cloudflare/ai-chat": "^0.12.1",
+    "agents": "^0.25.0",
+    "ai": "^7.0.127",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "workers-ai-provider": "^4.0.0",
+    "zod": "^4.6.5"
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }

@@ -1,13 +1,15 @@
-// Worker entry point. Static assets (the game UI in /public) are served by
-// Workers Static Assets before this handler runs; this only routes the API.
+// Worker entry point. In production, Workers Static Assets serve the built React
+// app (dist/client) and this handler only sees /agents/* and /api/*; in
+// development the Cloudflare Vite plugin does the same.
 
 import { routeAgentRequest } from "agents";
 
 export { GameSession } from "./game";
 export { RolloutWorkflow } from "./workflow";
 
-// One agent instance per player: /agents/game-session/<player-id>
-const AGENT_PATH = /^\/agents\/game-session\/[A-Za-z0-9-]{8,64}$/;
+// One agent instance per player: /agents/game-session/<player-id>[/...]
+// (the chat client also fetches /agents/game-session/<player-id>/get-messages).
+const AGENT_PATH = /^\/agents\/game-session\/[A-Za-z0-9-]{8,64}(\/|$)/;
 
 export default {
   async fetch(request, env): Promise<Response> {

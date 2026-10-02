@@ -159,7 +159,8 @@ export interface Outcome {
   note: string;
 }
 
-const GRADE_THRESHOLDS: [Grade, number][] = [
+/** Highest blast radius (%·s) that still earns each grade; anything above the last one is a D. */
+export const GRADE_THRESHOLDS: [Grade, number][] = [
   ["S", 6],
   ["A", 20],
   ["B", 60],
